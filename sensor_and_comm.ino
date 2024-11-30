@@ -4,7 +4,8 @@
 #include <WiFi.h>
 #include "time.h"
 #include <PubSubClient.h>
-#include "ccs811.h"  // CCS811 library
+#include "ccs811.h"
+#include <SoftwareSerial.h>
 
 #define RX_PIN 16
 #define TX_PIN 17
@@ -14,8 +15,7 @@
 #define CO2_ENABLED 1
 #define USE_MHZ 1
 
-// time server for proper communication via mqtt 
-const char* ntpServer = "192.168.179.18"; 
+const char* ntpServer = "192.168.179.29";
 const long  gmtOffset_sec = 3600;
 const int   daylightOffset_sec = 3600;
 unsigned long epochTime;
@@ -24,12 +24,12 @@ WiFiClient espClient;
 PubSubClient pbclient(espClient);
 
 MHZ19 myMHZ19;
-HardwareSerial mySerial(2);
+SoftwareSerial mySerial(RX_PIN, TX_PIN); 
 Adafruit_HTU21DF htu = Adafruit_HTU21DF();
 CCS811 ccs811(23);
 
 const char *ssid = "FRITZ!Box Fon WLAN 7141";
-const char *password = "my_super_safe_wifi_password_123";
+const char *password = "wifi_password";
 
 // mqtt server to communicate
 const char* mqttServer = "192.168.179.11";
@@ -65,7 +65,6 @@ void setup() {
   // Enable I2C
   Wire.begin();
 
-  // enable comm to co2
   mySerial.begin(BAUDRATE);
   myMHZ19.begin(mySerial);
 
@@ -83,7 +82,7 @@ void setup() {
     while (1);
   }
 
-
+  delay(1000);
   //init and get the time
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
@@ -273,13 +272,12 @@ int are_sensors_working() {
     if (USE_MHZ) {
       int CO2 = myMHZ19.getCO2();
 
-      if (myMHZ19.errorCode  == RESULT_OK) {
+      if (myMHZ19.errorCode == RESULT_OK) {
         Serial.println("Co2 received successfully");
         co2_sensor_works = 1;
       } else {
         Serial.println("Co2 result was not okay, Response Code: ");
         Serial.println(myMHZ19.errorCode);
-        while (1);
       }
     } else {
       ccs811.set_i2cdelay(50);
@@ -316,7 +314,7 @@ unsigned long getTime() {
   time_t now;
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) {
-    //Serial.println("Failed to obtain time");
+    Serial.println("Failed to obtain time");
     return (0);
   }
   time(&now);
